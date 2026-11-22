@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tirs au but – le jeu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@600;800&display=swap">
+<style>
+:root{--bg:#eaf3ea;--ink:#12281a;--pitch:#2f8f4e;--pitch2:#287f44;--card:#fff;--accent:#e8590c;--ok:#1b8a3a;--ko:#c92a2a;--muted:#5b6e61;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1a12;--ink:#eef6ef;--pitch:#1f6b3a;--pitch2:#1a5d33;--card:#16281c;--accent:#ffa94d;--ok:#51cf66;--ko:#ff6b6b;--muted:#9db3a3}}
+:root[data-theme="dark"]{--bg:#0d1a12;--ink:#eef6ef;--pitch:#1f6b3a;--pitch2:#1a5d33;--card:#16281c;--accent:#ffa94d;--ok:#51cf66;--ko:#ff6b6b;--muted:#9db3a3}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,"Trebuchet MS",system-ui,sans-serif;font-weight:600;line-height:1.5}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-family:"Bowlby One",Impact,sans-serif;font-weight:400;font-size:2rem;line-height:1.1;margin:8px 0 4px}
+.sub{color:var(--muted);margin:0 0 14px}
+.modes{display:flex;gap:8px;margin-bottom:12px}.modes button{flex:1;background:var(--card);color:var(--ink);border:2px solid transparent;border-radius:12px;padding:10px;font:inherit;font-weight:800;cursor:pointer}.modes button[aria-pressed="true"]{border-color:var(--accent)}.modes button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.board{display:flex;justify-content:space-between;align-items:center;background:var(--card);border-radius:14px;padding:10px 14px;margin-bottom:12px}
+.board b{font-size:1.6rem;font-weight:800}
+.dots{display:flex;gap:6px}
+.dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted)}
+.dot.g{background:var(--ok);border-color:var(--ok)}.dot.m{background:var(--ko);border-color:var(--ko)}
+.field{position:relative;background:repeating-linear-gradient(90deg,var(--pitch) 0 48px,var(--pitch2) 48px 96px);border-radius:16px;padding:22px 14px 120px;overflow:hidden}
+.goal{position:relative;margin:0 auto;width:100%;aspect-ratio:3/1.7;border:6px solid #fff;border-bottom:none;border-radius:6px 6px 0 0;background:rgba(255,255,255,.12)}
+.zones{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.zones button{background:none;border:1px dashed rgba(255,255,255,.45);color:#fff;font:inherit;cursor:pointer;font-size:1.4rem}
+.zones button:hover,.zones button:focus-visible{background:rgba(255,255,255,.25);outline:3px solid #fff;outline-offset:-3px}
+.zones button:disabled{cursor:default;background:none;outline:none}
+.keeper,.ball{position:absolute;font-size:2.6rem;line-height:1;transition:all .45s cubic-bezier(.3,.8,.4,1);pointer-events:none;transform:translate(-50%,-50%)}
+.keeper{left:50%;top:70%}
+.ball{left:50%;top:calc(100% + 80px);font-size:2.2rem;z-index:2}
+.msg{min-height:2.4em;text-align:center;font-size:1.25rem;font-weight:800;margin:12px 0 4px}
+.msg.ok{color:var(--ok)}.msg.ko{color:var(--ko)}
+.end{display:none;background:var(--card);border-radius:14px;padding:16px;text-align:center}
+.end.show{display:block}
+.end p{margin:4px 0}
+.btn{background:var(--accent);color:#1b1206;border:0;border-radius:12px;padding:12px 22px;font:inherit;font-weight:800;font-size:1.05rem;cursor:pointer;margin-top:8px}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.ad{margin:18px 0;min-height:90px;border:1px dashed var(--muted);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.85rem}
+section.info{margin-top:22px}
+section.info h2{font-family:"Bowlby One",Impact,sans-serif;font-weight:400;font-size:1.2rem;margin:18px 0 6px}
+section.info p,section.info li{color:var(--muted);margin:4px 0}
+footer{margin:24px 0 8px;font-size:.8rem;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){.keeper,.ball{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Tirs au but</h1>
+  <p class="sub">Cinq tirs. Visez un des six coins et battez le gardien.</p>
+
+  <div class="modes">
+    <button id="mTir" aria-pressed="true">⚽ Je tire</button>
+    <button id="mGar" aria-pressed="false">🧤 Je suis gardien</button>
+  </div>
+
+  <div class="board" aria-live="polite">
+    <div><span id="lvl">Niveau 1</span> · <span id="lbl">Buts</span> <b id="score">0</b> / 5</div>
+    <div class="dots" id="dots" aria-label="Résultat des tirs"></div>
+    <div>Record <b id="best">0</b></div>
+  </div>
+
+  <div class="field">
+    <div class="goal" id="goal">
+      <div class="keeper" id="keeper">🧤</div>
+      <div class="zones" id="zones"></div>
+    </div>
+    <div class="ball" id="ball">⚽</div>
+  </div>
+
+  <div class="msg" id="msg" role="status">Choisissez où tirer !</div>
+
+  <div class="end" id="end">
+    <p style="font-size:1.3rem;font-weight:800" id="endTitle"></p>
+    <p id="endText"></p>
+    <button class="btn" id="again">Rejouer</button>
+  </div>
+
+  <!-- Emplacement publicitaire : collez ici le code d’unité AdSense une fois votre site approuvé -->
+  <div class="ad" id="ad">Espace publicitaire</div>
+
+  <section class="info">
+    <h2>Comment jouer</h2>
+    <ul>
+      <li>Touchez une des six zones du but pour tirer.</li>
+      <li>Le gardien plonge d’un côté : si vous choisissez la même zone, il arrête le tir.</li>
+      <li>Les angles du haut sont difficiles à arrêter, mais le ballon peut passer au-dessus.</li>
+      <li>Après cinq tirs, votre score s’affiche. Avec 3 buts ou plus, vous passez au niveau suivant et le gardien devient plus difficile à battre.</li>
+      <li>En mode gardien, touchez la zone où vous voulez plonger pour arrêter les tirs adverses.</li>
+    </ul>
+    <h2>À propos</h2>
+    <p>Un petit jeu de football gratuit, créé pour s’amuser quelques minutes, sur téléphone comme sur ordinateur. Aucune inscription n’est nécessaire.</p>
+  </section>
+  <footer>© Tirs au but – jeu gratuit</footer>
+</main>
+
+<script>
+(function(){
+  function gkMode(){return mode==='gardien'}
+  var level=1, mode='tir', TOTAL=5, shot=0, goals=0, busy=false, results=[];
+  var zonesEl=document.getElementById('zones'), keeper=document.getElementById('keeper'), ball=document.getElementById('ball');
+  var msg=document.getElementById('msg'), dots=document.getElementById('dots');
+  var names=['en haut à gauche','en haut au centre','en haut à droite','en bas à gauche','en bas au centre','en bas à droite'];
+  var best=0;
+  try{best=parseInt(localStorage.getItem('tab-best')||'0',10)||0}catch(e){}
+  document.getElementById('best').textContent=best;
+
+  for(var i=0;i<6;i++){(function(z){
+    var b=document.createElement('button');b.setAttribute('aria-label','Tirer '+names[z]);
+    b.addEventListener('click',function(){play(z)});zonesEl.appendChild(b);
+  })(i)}
+  var btns=zonesEl.querySelectorAll('button');
+
+  function center(z){var c=z%3,r=Math.floor(z/3);return {x:(c*2+1)/6*100,y:(r*2+1)/4*100}}
+  function drawDots(){
+    dots.innerHTML='';
+    for(var i=0;i<TOTAL;i++){var d=document.createElement('span');d.className='dot'+(results[i]===1?' g':results[i]===0?' m':'');dots.appendChild(d)}
+  }
+  function setBtns(off){for(var i=0;i<btns.length;i++)btns[i].disabled=off}
+  function say(t,c){msg.textContent=t;msg.className='msg '+(c||'')}
+  function reset(){
+    keeper.style.transition='none';ball.style.transition='none';
+    keeper.style.left='50%';keeper.style.top='70%';keeper.style.transform='translate(-50%,-50%) rotate(0)';
+    ball.style.left='50%';ball.style.top='calc(100% + 80px)';ball.style.fontSize='2.2rem';ball.style.opacity=1;
+    void keeper.offsetWidth;keeper.style.transition='';ball.style.transition='';
+  }
+  function play(z){
+    if(busy||shot>=TOTAL)return;
+    busy=true;setBtns(true);
+    // Le gardien devine : légèrement plus souvent en bas
+    var k,s,gk=(mode==='gardien');
+    if(gk){k=z;s=Math.floor(Math.random()*6)}
+    else{
+      var w=[1,1,1,1.4,1.4,1.4],r=Math.random()*6.6;k=0;
+      for(;k<6;k++){r-=w[k];if(r<=0)break}
+      if(k>5)k=5;s=z;
+    }
+    var adj=gk?0.2:Math.min(0.6,0.2+0.1*(level-1));
+    var dist=Math.abs(k%3-s%3)+Math.abs(Math.floor(k/3)-Math.floor(s/3));
+    var off=(s===0||s===2)&&Math.random()<0.15;
+    var saved=!off&&(dist===0||(dist===1&&Math.random()<adj));
+    var kc=center(k),tc=center(s);
+    keeper.style.left=kc.x+'%';keeper.style.top=kc.y+'%';
+    keeper.style.transform='translate(-50%,-50%) rotate('+((kc.x-50)*0.9)+'deg)';
+    ball.style.left=tc.x+'%';
+    ball.style.top=off?'-10%':'calc('+tc.y+'% + 22px)';
+    ball.style.fontSize='1.5rem';
+    setTimeout(function(){
+      var ok=gk?(off||saved):(!off&&!saved);
+      if(ok)goals++;
+      if(gk){
+        if(off)say('Il tire au-dessus ! Chanceux !','ok');
+        else if(saved)say('ARRÊT ! Quel gardien !','ok');
+        else say('But encaissé '+names[s]+'.','ko');
+      }else if(ok)say('BUT ! Magnifique frappe '+names[z]+'.','ok');
+      else if(off)say('Au-dessus de la barre !','ko');
+      else say('Arrêt du gardien !','ko');
+      results[shot]=ok?1:0;shot++;
+      document.getElementById('score').textContent=goals;drawDots();
+      setTimeout(next,1100);
+    },520);
+  }
+  function next(){
+    if(shot>=TOTAL){finish();return}
+    reset();say((gkMode()?'Tir adverse ':'Tir ')+(shot+1)+' sur '+TOTAL+(gkMode()?' : choisissez où plonger.':' : choisissez une zone.'));
+    busy=false;setBtns(false);
+  }
+  function finish(){
+    var rec=goals>best;
+    if(rec){best=goals;try{localStorage.setItem('tab-best',String(best))}catch(e){}}
+    document.getElementById('best').textContent=best;
+    var up=(!gkMode()&&goals>=3&&level<5);
+    if(up){level++;document.getElementById('lvl').textContent='Niveau '+level}
+    var t=goals===5?'Sans faute, bravo !':goals>=3?'Belle victoire !':'Dommage, retentez votre chance.';
+    document.getElementById('endTitle').textContent=t;
+    document.getElementById('endText').textContent='Vous avez marqué '+goals+' but'+(goals>1?'s':'')+' sur '+TOTAL+'.'+(rec&&goals>0?' Nouveau record !':'')+(up?' Niveau '+level+' débloqué : le gardien est plus fort.':'');
+    document.getElementById('end').className='end show';
+    say('');
+  }
+  function restart(){
+    shot=0;goals=0;results=[];busy=false;
+    document.getElementById('score').textContent=0;
+    document.getElementById('lbl').textContent=gkMode()?'Arrêts':'Buts';
+    document.getElementById('lvl').textContent=gkMode()?'Gardien':'Niveau '+level;
+    document.getElementById('end').className='end';
+    drawDots();reset();setBtns(false);say(gkMode()?'Choisissez où plonger !':'Choisissez où tirer !');
+  }
+  function setMode(m){
+    mode=m;
+    document.getElementById('mTir').setAttribute('aria-pressed',m==='tir');
+    document.getElementById('mGar').setAttribute('aria-pressed',m==='gardien');
+    restart();
+  }
+  document.getElementById('again').addEventListener('click',restart);
+  document.getElementById('mTir').addEventListener('click',function(){setMode('tir')});
+  document.getElementById('mGar').addEventListener('click',function(){setMode('gardien')});
+  drawDots();
+})();
+</script>
+</body>
+</html>
